@@ -1,0 +1,21 @@
+@keyframes crtTurnOn {
+  0% {
+    transform: scale(1, 0.001) translate3d(0, 0, 0);
+    filter: brightness(10);
+    opacity: 0;
+  }
+  20% {
+    transform: scale(1, 0.001) translate3d(0, 0, 0);
+    filter: brightness(10);
+    opacity: 1; /* 先出現一條極亮的水線平 */
+  }
+  100% {
+    transform: scale(1, 1) translate3d(0, 0, 0);
+    filter: brightness(1);
+    opacity: 1; /* 瞬間垂直展開至全螢幕並恢復正常亮度 */
+  }
+}
+
+.crt-turn-on {
+  animation: crtTurnOn 0.4s cubic-bezier(0.23, 1, 0.32, 1) both;
+}

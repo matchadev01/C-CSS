@@ -1,0 +1,22 @@
+/* --- 懸浮搖擺效果 (Swing) --- */
+.hover-swing {
+  /* 確保搖擺的支點在「正上方」，這樣才有掛牌搖晃的物理感 */
+  transform-origin: top center;
+  /* 讓動畫結束時能平滑回到原位 */
+  transition: transform 0.2s ease-out;
+  /* 注意：如果是行內元素 (像 <span>)，記得加上 display: inline-block; 才能旋轉 */
+}
+
+.hover-swing:hover {
+  /* 滑鼠移過去時觸發動畫，持續 1 秒 */
+  animation: customSwing 1s ease-in-out;
+}
+
+/* Swing 動畫的核心：左右逐漸遞減的搖晃角度 */
+@keyframes customSwing {
+  20% { transform: rotate(15deg); }
+  40% { transform: rotate(-10deg); }
+  60% { transform: rotate(5deg); }
+  80% { transform: rotate(-5deg); }
+  100% { transform: rotate(0deg); }
+}

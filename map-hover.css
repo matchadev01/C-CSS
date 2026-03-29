@@ -1,0 +1,16 @@
+.landmark-card {
+  transition: box-shadow 0.2s ease, filter 0.2s ease;
+  cursor: url('https://i.meee.com.tw/cursor-bee.png'), pointer; /* 加上互動游標 */
+}
+.landmark-card:hover {
+  z-index: 10 !important;
+  box-shadow: 8px 8px 0 rgba(42,34,27,0.5) !important;
+  filter: brightness(1.05);
+  animation: paperShake 0.4s ease-in-out infinite;
+}
+@keyframes paperShake {
+  0%, 100% { transform: rotate(var(--rot, 0deg)); }
+  25% { transform: translateY(-2px) rotate(calc(var(--rot, 0deg) - 2.5deg)); }
+  50% { transform: translateY(0px) rotate(calc(var(--rot, 0deg) + 2.5deg)); }
+  75% { transform: translateY(-2px) rotate(calc(var(--rot, 0deg) - 2.5deg)); }
+}

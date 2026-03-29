@@ -5,16 +5,16 @@
 
 .landmark-card:hover {
   z-index: 10 !important;
-  box-shadow: 8px 8px 0 rgba(42,34,27,0.5) !important;
+  box-shadow: 6px 8px 0 rgba(42,34,27,0.4) !important;
   filter: brightness(1.05);
-  animation: customTada 1s; /* 滑鼠移上去時觸發一次 Tada 搖晃 */
+  animation: softTada 0.8s ease-in-out; /* 滑鼠移上去只會溫柔地抖動一次 */
 }
 
-/* 專屬 Tada：會自動讀取 --rot 變數，完美融合原本的歪斜角度 */
-@keyframes customTada {
-  from { transform: scale3d(1, 1, 1) rotate(var(--rot, 0deg)); }
-  10%, 20% { transform: scale3d(0.9, 0.9, 0.9) rotate(calc(var(--rot, 0deg) - 3deg)); }
-  30%, 50%, 70%, 90% { transform: scale3d(1.1, 1.1, 1.1) rotate(calc(var(--rot, 0deg) + 3deg)); }
-  40%, 60%, 80% { transform: scale3d(1.1, 1.1, 1.1) rotate(calc(var(--rot, 0deg) - 3deg)); }
-  to { transform: scale3d(1, 1, 1) rotate(var(--rot, 0deg)); }
+/* 溫柔版 Tada：幅度減半、角度減半，並保留原本的歪斜記憶 */
+@keyframes softTada {
+  from { transform: scale(1) rotate(var(--rot, 0deg)); }
+  10%, 20% { transform: scale(0.97) rotate(calc(var(--rot, 0deg) - 1.5deg)); }
+  30%, 50%, 70%, 90% { transform: scale(1.03) rotate(calc(var(--rot, 0deg) + 1.5deg)); }
+  40%, 60%, 80% { transform: scale(1.03) rotate(calc(var(--rot, 0deg) - 1.5deg)); }
+  to { transform: scale(1) rotate(var(--rot, 0deg)); }
 }

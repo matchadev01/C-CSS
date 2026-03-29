@@ -1,16 +1,20 @@
 .landmark-card {
   transition: box-shadow 0.2s ease, filter 0.2s ease;
-  cursor: url('https://i.meee.com.tw/cursor-bee.png'), pointer; /* 加上互動游標 */
+  cursor: url('https://i.meee.com.tw/cursor-bee.png'), pointer;
 }
+
 .landmark-card:hover {
   z-index: 10 !important;
   box-shadow: 8px 8px 0 rgba(42,34,27,0.5) !important;
   filter: brightness(1.05);
-  animation: paperShake 0.4s ease-in-out infinite;
+  animation: customTada 1s; /* 滑鼠移上去時觸發一次 Tada 搖晃 */
 }
-@keyframes paperShake {
-  0%, 100% { transform: rotate(var(--rot, 0deg)); }
-  25% { transform: translateY(-2px) rotate(calc(var(--rot, 0deg) - 2.5deg)); }
-  50% { transform: translateY(0px) rotate(calc(var(--rot, 0deg) + 2.5deg)); }
-  75% { transform: translateY(-2px) rotate(calc(var(--rot, 0deg) - 2.5deg)); }
+
+/* 專屬 Tada：會自動讀取 --rot 變數，完美融合原本的歪斜角度 */
+@keyframes customTada {
+  from { transform: scale3d(1, 1, 1) rotate(var(--rot, 0deg)); }
+  10%, 20% { transform: scale3d(0.9, 0.9, 0.9) rotate(calc(var(--rot, 0deg) - 3deg)); }
+  30%, 50%, 70%, 90% { transform: scale3d(1.1, 1.1, 1.1) rotate(calc(var(--rot, 0deg) + 3deg)); }
+  40%, 60%, 80% { transform: scale3d(1.1, 1.1, 1.1) rotate(calc(var(--rot, 0deg) - 3deg)); }
+  to { transform: scale3d(1, 1, 1) rotate(var(--rot, 0deg)); }
 }

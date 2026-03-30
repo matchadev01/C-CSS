@@ -1,0 +1,19 @@
+/* Delulu Town - Win95 UI Kit */
+/* Window frame */
+.w-box{background:#c0c0c0;border-top:2px solid #fff;border-left:2px solid #fff;border-right:2px solid #000;border-bottom:2px solid #000;box-shadow:inset 1px 1px #dfdfdf,inset -1px -1px #808080;box-sizing:border-box;padding:2px;font-family:sans-serif}
+/* Title bar */
+.w-bar{background:linear-gradient(90deg,#000080,#1084d0);padding:2px 4px;display:flex;justify-content:space-between;align-items:center;color:#fff;font-weight:bold;font-size:12px;letter-spacing:1px;font-family:sans-serif}
+/* Button (raised) */
+.w-btn{background:#c0c0c0;border-top:1px solid #fff;border-left:1px solid #fff;border-right:1px solid #000;border-bottom:1px solid #000;box-shadow:inset -1px -1px #808080;display:flex;align-items:center;justify-content:center;font-size:10px;color:#000;font-weight:bold;cursor:pointer;font-family:sans-serif}
+/* Small title bar button */
+.w-xb{width:16px;height:14px}
+/* Menu bar */
+.w-menu{display:flex;gap:12px;padding:4px 8px;font-size:12px;border-bottom:1px solid #808080;margin-bottom:2px;color:#000;font-family:sans-serif}
+/* Sunken panel */
+.w-sink{border-top:2px solid #808080;border-left:2px solid #808080;border-right:2px solid #fff;border-bottom:2px solid #fff}
+/* Media control button */
+.w-ctrl{width:26px;height:24px}
+/* Vent slit */
+.w-vent{width:5px;height:28px;background:#b0a996;box-shadow:inset 1px 1px 3px rgba(0,0,0,0.6),1px 1px 0 #fff;border-radius:2px}
+/* Rocker switch */
+.w-rock{width:32px;height:14px;background:#e4e0cf;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #9c9581;border-right:3px solid #9c9581;border-radius:2px;cursor:pointer}

@@ -1,10 +1,11 @@
 /* A.O.D 緊急播報跑馬燈動畫 */
 .aod-ticker-text {
-    display: inline-block;
-    padding-left: 100%;
-    animation: aod-ticker-scroll 15s linear infinite;
+    display: inline-block !important;
+    white-space: nowrap !important;
+    padding-left: 100% !important;
+    animation: aod-ticker-scroll 15s linear infinite !important;
 }
 @keyframes aod-ticker-scroll {
-    0% { transform: translateX(0); }
+    0%   { transform: translateX(0); }
     100% { transform: translateX(-100%); }
 }

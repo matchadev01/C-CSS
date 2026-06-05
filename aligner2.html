@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body { background:#2a2a2a; margin:0; padding:16px; font-family:'Microsoft JhengHei',sans-serif; color:#eee; }
+  h3 { margin:0 0 8px; }
+  .hint { font-size:13px; color:#aaa; margin-bottom:12px; line-height:1.7; }
+  #upbar { max-width:600px; margin:0 auto 12px; }
+  #upbar label { background:#3a5ec0; color:#fff; padding:10px 18px; border-radius:6px; cursor:pointer; font-size:14px; display:inline-block; }
+  #upbar input { display:none; }
+  #stage { position:relative; max-width:600px; margin:0 auto; touch-action:none; background:#111; min-height:200px; border-radius:8px; }
+  #bg { width:100%; display:block; user-select:none; -webkit-user-drag:none; border-radius:8px; }
+  .handle { position:absolute; width:38px; height:38px; margin:-19px 0 0 -19px;
+    background:rgba(255,40,40,0.55); border:3px solid #fff; border-radius:50%;
+    cursor:grab; z-index:10; box-shadow:0 0 8px rgba(0,0,0,0.8); display:none;
+    touch-action:none; }
+  .handle::after { content:''; position:absolute; top:50%; left:50%; width:6px; height:6px; margin:-3px 0 0 -3px; background:#fff; border-radius:50%; }
+  .handle:active { cursor:grabbing; background:rgba(255,200,0,0.6); }
+  .label { position:absolute; top:-24px; left:50%; transform:translateX(-50%);
+    font-size:12px; font-weight:bold; color:#fff; white-space:nowrap; background:rgba(0,0,0,0.75); padding:2px 6px; border-radius:4px; }
+  #out { max-width:600px; margin:16px auto 0; }
+  textarea { width:100%; height:150px; box-sizing:border-box; font-family:monospace; font-size:11px;
+    background:#111; color:#6f6; border:1px solid #444; border-radius:6px; padding:10px; }
+  button { background:#27ae60; color:#fff; border:none; padding:12px 22px; border-radius:6px; font-size:15px; cursor:pointer; margin-top:8px; }
+  button:hover { background:#2ecc71; }
+  #preview { position:absolute; z-index:5; overflow:hidden; transform-origin:top left; pointer-events:none; display:none; }
+  #preview .row { background:rgba(248,249,250,0.96); border-left:4px solid #ff4d4d; padding:6px; margin-bottom:7px; border-radius:3px; font-size:11px; color:#2c3e50; }
+  #copied { color:#2ecc71; font-size:13px; margin-left:10px; opacity:0; transition:opacity .3s; }
+</style>
+</head>
+<body>
+
+<h3>🎯 四角對齊工具</h3>
+<div class="hint">
+1. 先按下面按鈕<b>上傳你的掌機圖</b>（從電腦選 PNG）。<br>
+2. 把 <b style="color:#ff5050;">四個紅圈</b> 拖到螢幕黑框的四個角。<br>
+3. 對齊後按<b style="color:#2ecc71;">「產生 HTML」</b>，自動複製，貼到 Caveduck。
+</div>
+
+<div id="upbar">
+  <label>📁 上傳掌機圖<input type="file" id="file" accept="image/*"></label>
+</div>
+
+<div id="stage">
+  <img id="bg" alt="">
+  <div id="preview"></div>
+  <div class="handle" data-i="0" style="left:28%;top:15%"><span class="label">①左上</span></div>
+  <div class="handle" data-i="1" style="left:70%;top:19%"><span class="label">②右上</span></div>
+  <div class="handle" data-i="2" style="left:68%;top:58%"><span class="label">③右下</span></div>
+  <div class="handle" data-i="3" style="left:27%;top:54%"><span class="label">④左下</span></div>
+</div>
+
+<div id="out">
+  <button onclick="genHTML()">✅ 產生 HTML（複製用）</button>
+  <span id="copied">已複製！</span>
+  <textarea id="code" readonly placeholder="對齊後按上面按鈕，這裡出現可複製的 HTML"></textarea>
+</div>
+
+<script>
+const stage=document.getElementById('stage');
+const bg=document.getElementById('bg');
+const preview=document.getElementById('preview');
+const handles=[...document.querySelectorAll('.handle')];
+const fileInput=document.getElementById('file');
+let pts=[[28,15],[70,19],[68,58],[27,54]];
+let IMG_DATA='';
+
+fileInput.addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=ev=>{ IMG_DATA=ev.target.result; bg.src=IMG_DATA; };
+  rd.readAsDataURL(f);
+});
+
+bg.addEventListener('load',()=>{
+  handles.forEach(h=>h.style.display='block');
+  preview.style.display='block';
+  update();
+});
+
+function pxRect(){ return stage.getBoundingClientRect(); }
+function getPx(){ const r=pxRect(); return pts.map(p=>[p[0]/100*r.width,p[1]/100*r.height]); }
+
+function solveH(src,dst){
+  const A=[],b=[];
+  for(let k=0;k<4;k++){ const [x,y]=src[k],[X,Y]=dst[k];
+    A.push([x,y,1,0,0,0,-X*x,-X*y]); b.push(X);
+    A.push([0,0,0,x,y,1,-Y*x,-Y*y]); b.push(Y); }
+  const n=8; for(let i=0;i<n;i++) A[i].push(b[i]);
+  for(let c=0;c<n;c++){ let p=c; for(let r=c+1;r<n;r++) if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;
+    [A[c],A[p]]=[A[p],A[c]]; const d=A[c][c];
+    for(let j=c;j<=n;j++)A[c][j]/=d;
+    for(let r=0;r<n;r++) if(r!==c){const f=A[r][c]; for(let j=c;j<=n;j++)A[r][j]-=f*A[c][j];} }
+  const h=A.map(r=>r[n]);
+  return [[h[0],h[1],h[2]],[h[3],h[4],h[5]],[h[6],h[7],1]];
+}
+
+function update(){
+  const dpx=getPx(); const ox=dpx[0][0],oy=dpx[0][1];
+  const dst=dpx.map(p=>[p[0]-ox,p[1]-oy]);
+  const cw=Math.max(...dst.map(d=>d[0])), ch=Math.max(...dst.map(d=>d[1]));
+  if(cw<=0||ch<=0) return;
+  const src=[[0,0],[cw,0],[cw,ch],[0,ch]];
+  const a=solveH(src,dst);
+  const m=[a[0][0],a[1][0],0,a[2][0],a[0][1],a[1][1],0,a[2][1],0,0,1,0,a[0][2],a[1][2],0,a[2][2]];
+  preview.style.left=pts[0][0]+'%'; preview.style.top=pts[0][1]+'%';
+  preview.style.width=cw+'px'; preview.style.height=ch+'px';
+  preview.style.transform='matrix3d('+m.map(v=>v.toFixed(6)).join(',')+')';
+  preview.innerHTML='<div class="row">@上課｜讓小狼去上課增加數值</div><div class="row" style="border-color:#3498db">@餵食｜給小狼吃最愛的食物</div><div class="row" style="border-color:#2ecc71">@玩耍｜帶小狼去戶外活動</div><div class="row" style="border-color:#9b59b6">@休息｜讓小狼回窩裡睡覺</div>';
+  window._m=m; window._cw=cw; window._ch=ch; window._left=pts[0][0]; window._top=pts[0][1];
+}
+
+let drag=null;
+handles.forEach(h=>h.addEventListener('pointerdown',e=>{ drag=h; h.setPointerCapture(e.pointerId); e.preventDefault(); }));
+stage.addEventListener('pointermove',e=>{
+  if(!drag) return;
+  const r=pxRect();
+  let x=Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100));
+  let y=Math.max(0,Math.min(100,(e.clientY-r.top)/r.height*100));
+  pts[+drag.dataset.i]=[x,y];
+  drag.style.left=x+'%'; drag.style.top=y+'%';
+  update();
+});
+stage.addEventListener('pointerup',()=>drag=null);
+stage.addEventListener('pointercancel',()=>drag=null);
+
+function genHTML(){
+  if(!window._m){ alert('請先上傳圖片並拖好四角'); return; }
+  const m=window._m,cw=window._cw,ch=window._ch,r=pxRect();
+  const wPct=(cw/r.width*100).toFixed(2), hPct=(ch/r.height*100).toFixed(2);
+  const mStr=m.map(v=>v.toFixed(6)).join(',');
+  // 提醒：這裡用 base64 圖會很長，建議你之後把 src 換成正式圖床網址
+  const html=`<div style="max-width:600px;width:100%;margin:0 auto;font-family:'Microsoft JhengHei',sans-serif;"><p style="text-align:center;margin:0 0 6px;"><strong style="font-size:24px;color:#ffcc00;letter-spacing:3px;text-shadow:0 0 8px rgba(255,204,0,0.8);">🐾 培育指令 🐾</strong></p><div style="position:relative;"><img src="換成你的圖床網址.png" style="width:100%;height:auto;display:block;position:relative;z-index:2;" alt="device"><div style="position:absolute;top:${window._top.toFixed(2)}%;left:${window._left.toFixed(2)}%;width:${wPct}%;height:${hPct}%;z-index:1;overflow-y:auto;padding:14px 12px;box-sizing:border-box;transform-origin:top left;transform:matrix3d(${mStr});background-color:#1a1a1a;border-radius:6px;box-shadow:inset 0 0 18px rgba(0,0,0,0.95);"><div style="background-color:rgba(248,249,250,0.96);border-left:5px solid #ff4d4d;padding:9px;margin-bottom:11px;border-radius:4px;"><strong style="color:#e74c3c;font-size:14px;">@上課</strong><span style="color:#bdc3c7;margin:0 3px;">|</span><strong style="color:#2c3e50;font-size:13px;">讓小狼去上課增加數值</strong><br><span style="color:#7f8c8d;font-size:12px;">消耗些許體力，提升智力與乖巧度。</span></div><div style="background-color:rgba(248,249,250,0.96);border-left:5px solid #3498db;padding:9px;margin-bottom:11px;border-radius:4px;"><strong style="color:#2980b9;font-size:14px;">@餵食</strong><span style="color:#bdc3c7;margin:0 3px;">|</span><strong style="color:#2c3e50;font-size:13px;">給小狼吃最愛的食物</strong><br><span style="color:#7f8c8d;font-size:12px;">大幅恢復體力，並增加好感度。</span></div><div style="background-color:rgba(248,249,250,0.96);border-left:5px solid #2ecc71;padding:9px;margin-bottom:11px;border-radius:4px;"><strong style="color:#27ae60;font-size:14px;">@玩耍</strong><span style="color:#bdc3c7;margin:0 3px;">|</span><strong style="color:#2c3e50;font-size:13px;">帶小狼去戶外活動</strong><br><span style="color:#7f8c8d;font-size:12px;">增加快樂值與敏捷，減輕壓力。</span></div><div style="background-color:rgba(248,249,250,0.96);border-left:5px solid #9b59b6;padding:9px;border-radius:4px;"><strong style="color:#8e44ad;font-size:14px;">@休息</strong><span style="color:#bdc3c7;margin:0 3px;">|</span><strong style="color:#2c3e50;font-size:13px;">讓小狼回窩裡睡覺</strong><br><span style="color:#7f8c8d;font-size:12px;">緩慢恢復體力，重置疲勞狀態。</span></div></div></div></div>`;
+  const ta=document.getElementById('code'); ta.value=html; ta.select();
+  try{ document.execCommand('copy'); const c=document.getElementById('copied'); c.style.opacity=1; setTimeout(()=>c.style.opacity=0,1500);}catch(e){}
+}
+window.addEventListener('resize',update);
+</script>
+
+</body>
+</html>

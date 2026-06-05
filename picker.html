@@ -197,10 +197,20 @@ function buildControls(el){
   document.getElementById('tag').textContent='已選取：<'+tagName+'>'+(txt?'　「'+txt+(el.textContent.trim().length>16?'…':'')+'」':'');
 
   const items=[];
-  // 圖片：可改網址
+  // 圖片：可改網址 + 寬度
   if(tagName==='img'){
     const cur=el.getAttribute('src')||'';
     items.push(`<div class="ctrl"><label style="display:block;margin-bottom:4px;">圖片網址</label><input type="text" value="${cur.replace(/"/g,'&quot;')}" oninput="setSrc(this.value)" onblur="snapshot()" style="width:100%;background:#15171c;color:#cfe;border:1px solid #3a3f4a;border-radius:5px;padding:6px;font-size:11px;font-family:monospace;"></div>`);
+    // 寬度：讀現有 width，支援 % 或 px；沒寫就當 100%
+    const wv=el.style.width || '';
+    let wnum, wunit;
+    const pm=wv.match(/(\d+(?:\.\d+)?)(px|%)/);
+    if(pm){ wnum=parseFloat(pm[1]); wunit=pm[2]; } else { wnum=100; wunit='%'; }
+    if(wunit==='%'){
+      items.push(`<div class="ctrl"><div class="row"><label>圖片寬度</label><input type="range" min="10" max="100" value="${wnum}" oninput="setImgW(this.value,'%',this)" onchange="snapshot()"><span class="val">${wnum}%</span></div></div>`);
+    } else {
+      items.push(`<div class="ctrl"><div class="row"><label>圖片寬度</label><input type="range" min="40" max="800" value="${wnum}" oninput="setImgW(this.value,'px',this)" onchange="snapshot()"><span class="val">${wnum}px</span></div></div>`);
+    }
   }
   // 文字顏色
   if(el.style.color) items.push(colorCtrl('文字顏色','color',firstHex(el.style.color)));
@@ -247,6 +257,7 @@ function borderWidthCtrl(label,prop,val,min,max){
 }
 
 function setSrc(v){ if(!picked)return; picked.setAttribute('src',v); }
+function setImgW(v,unit,inp){ if(!picked)return; picked.style.width=v+unit; inp.nextElementSibling.textContent=v+unit; }
 function setColor(prop,v,inp){ if(!picked)return; picked.style.setProperty(prop,v); inp.nextElementSibling.textContent=v; }
 function setBorderColor(prop,v,inp){
   if(!picked)return;

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * { box-sizing:border-box; }
+  body { background:#1f2228; margin:0; padding:18px; font-family:'Microsoft JhengHei',sans-serif; color:#e8e8e8; }
+  h2 { margin:0 0 4px; font-size:20px; }
+  .sub { color:#9aa; font-size:13px; margin-bottom:16px; }
+  .wrap { display:flex; gap:18px; flex-wrap:wrap; max-width:1280px; margin:0 auto; }
+  .col { flex:1; min-width:340px; }
+  .panel { background:#2a2e36; border-radius:10px; padding:14px; margin-bottom:14px; }
+  .panel h4 { margin:0 0 10px; font-size:14px; color:#ffd34d; }
+  textarea { width:100%; background:#15171c; color:#cfe; border:1px solid #3a3f4a; border-radius:6px; padding:10px; font-family:monospace; font-size:12px; line-height:1.5; resize:vertical; }
+  #input { height:150px; }
+  #output { height:120px; }
+  button { background:#27ae60; color:#fff; border:none; padding:11px 20px; border-radius:6px; font-size:14px; cursor:pointer; }
+  button:hover { background:#2ecc71; }
+  button.scan { background:#3a5ec0; }
+  button.scan:hover { background:#4a6ed0; }
+  .note { font-size:12px; line-height:1.6; color:#bcd; background:#222; border-left:3px solid #3a5ec0; padding:9px 11px; border-radius:5px; margin-bottom:10px; }
+  #preview { background:#333; border-radius:8px; padding:14px; min-height:140px; overflow:auto; }
+  #preview * { cursor:pointer; }
+  .picked { outline:2px dashed #ffcc00 !important; outline-offset:1px; }
+  .hovering { outline:2px solid rgba(80,160,255,0.7) !important; outline-offset:1px; }
+  .ctrl { margin-bottom:10px; }
+  .ctrl .row { display:flex; align-items:center; gap:10px; }
+  .ctrl label { font-size:13px; flex:1; }
+  .ctrl .val { font-size:12px; color:#8fa; min-width:46px; text-align:right; font-family:monospace; }
+  input[type=range] { flex:2; }
+  input[type=color] { width:40px; height:28px; border:none; border-radius:5px; cursor:pointer; padding:0; background:none; }
+  #tag { font-size:12px; color:#ffd34d; margin-bottom:8px; }
+  #copied { color:#6f6; font-size:13px; opacity:0; transition:opacity .3s; margin-left:10px; }
+  .empty { color:#778; font-size:13px; text-align:center; padding:18px; }
+  /* 浮動調整面板：跟著選取的元素出現 */
+  #floatPanel { position:absolute; z-index:9999; background:#2a2e36; border:1px solid #4a5160;
+    border-radius:10px; padding:12px; width:240px; box-shadow:0 8px 24px rgba(0,0,0,0.6); display:none; }
+  #floatPanel #tag { font-size:12px; color:#ffd34d; margin-bottom:8px; cursor:move; user-select:none; padding-right:20px; }
+  #floatPanel #tag::before { content:'⠿ '; color:#667; }
+  #floatPanel .close { position:absolute; top:6px; right:10px; cursor:pointer; color:#9aa; font-size:16px; }
+  #floatPanel .close:hover { color:#fff; }
+</style>
+</head>
+<body>
+
+<h2>🖱️ 點選微調工具</h2>
+<div class="sub">貼上 HTML → 按渲染 → <b>直接點預覽裡的任何元素</b>，只會跳出那個元素的調整項，改完點下一個。</div>
+
+<div class="wrap">
+  <div class="col">
+    <div class="panel">
+      <h4>① 貼上 HTML</h4>
+      <div class="note">貼用 <code>style="..."</code> 寫的 HTML。按渲染後，在右邊預覽裡<b>點你想改的部分</b>（整張卡、某個字、某段說明都可以）。</div>
+      <textarea id="input" placeholder="把 HTML 貼這裡..."></textarea>
+      <div style="margin-top:8px;"><button class="scan" onclick="renderPreview()">▶ 渲染預覽</button> <button onclick="undo()" style="background:#777;">↩ 返回 (Ctrl+Z)</button></div>
+    </div>
+    <div class="panel">
+      <h4>② 預覽（點元素來選取）</h4>
+      <div id="preview"><div class="empty">渲染後在這裡點選元素</div></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="panel">
+      <h4>③ 產生程式碼</h4>
+      <div class="note">在左邊預覽點元素 → 旁邊浮出小面板直接調 → 全部改完按下面按鈕。<br>點錯了？按 <b>↩ 返回</b> 或鍵盤 <b>Ctrl+Z</b> 還原上一步。</div>
+      <button onclick="undo()" style="background:#7a6a3a;margin-bottom:8px;">↩ 返回上一步 (Ctrl+Z)</button>
+      <br>
+      <button onclick="genOut()">✅ 產生 HTML（自動複製）</button>
+      <span id="copied">已複製！</span>
+      <textarea id="output" readonly placeholder="調整後按按鈕，這裡出現可貼回 Caveduck 的 HTML" style="margin-top:8px;"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- 浮動調整面板 -->
+<div id="floatPanel">
+  <span class="close" onclick="closePanel()">✕</span>
+  <div id="tag">尚未選取元素</div>
+  <div style="margin-bottom:8px;"><button onclick="pickParent()" style="background:#5a6170;padding:5px 10px;font-size:12px;">⬆ 選外層</button></div>
+  <div id="controls"></div>
+</div>
+
+<script>
+const inputEl=document.getElementById('input');
+const preview=document.getElementById('preview');
+let picked=null;
+let history=[];  // 快照堆疊
+
+function snapshot(){
+  // 存目前預覽的乾淨 HTML（去高亮）
+  const clone=preview.cloneNode(true);
+  clone.querySelectorAll('.picked,.hovering').forEach(el=>{ el.classList.remove('picked','hovering'); if(!el.getAttribute('class')) el.removeAttribute('class'); });
+  history.push(clone.innerHTML);
+  if(history.length>50) history.shift();
+}
+function undo(){
+  if(history.length<=1){ return; }
+  history.pop();              // 丟掉目前狀態
+  const prev=history[history.length-1];
+  preview.innerHTML=prev;
+  picked=null;
+  document.getElementById('floatPanel').style.display='none';
+  bindEvents();
+}
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z'){ e.preventDefault(); undo(); }
+});
+
+// 浮動面板可拖移（抓標題列）
+(function(){
+  const fp=document.getElementById('floatPanel');
+  const tag=document.getElementById('tag');
+  let dragging=false, sx=0, sy=0, ox=0, oy=0;
+  tag.addEventListener('pointerdown',e=>{
+    dragging=true; sx=e.clientX; sy=e.clientY;
+    ox=parseFloat(fp.style.left)||0; oy=parseFloat(fp.style.top)||0;
+    tag.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  tag.addEventListener('pointermove',e=>{
+    if(!dragging) return;
+    fp.style.left=(ox + e.clientX - sx)+'px';
+    fp.style.top=(oy + e.clientY - sy)+'px';
+  });
+  tag.addEventListener('pointerup',()=>dragging=false);
+  tag.addEventListener('pointercancel',()=>dragging=false);
+})();
+
+function renderPreview(){
+  const html=inputEl.value.trim();
+  if(!html){ alert('請先貼上 HTML'); return; }
+  preview.innerHTML=html;
+  picked=null;
+  history=[];
+  document.getElementById('floatPanel').style.display='none';
+  bindEvents();
+  snapshot();
+}
+function closePanel(){
+  document.getElementById('floatPanel').style.display='none';
+  if(picked){ picked.classList.remove('picked'); picked=null; }
+}
+
+function bindEvents(){
+  const all=preview.querySelectorAll('*');
+  all.forEach(el=>{
+    el.addEventListener('mouseover',e=>{ e.stopPropagation(); el.classList.add('hovering'); });
+    el.addEventListener('mouseout',e=>{ el.classList.remove('hovering'); });
+    el.addEventListener('click',e=>{ e.stopPropagation(); e.preventDefault(); pick(el); });
+  });
+}
+
+function pickParent(){
+  if(!picked) return;
+  const p=picked.parentElement;
+  if(p && p!==preview && preview.contains(p)){ pick(p); }
+}
+function pick(el){
+  if(picked) picked.classList.remove('picked');
+  picked=el; el.classList.add('picked'); el.classList.remove('hovering');
+  buildControls(el);
+  // 把浮動面板定位到元素右側（空間不夠就放左側/下方）
+  const fp=document.getElementById('floatPanel');
+  fp.style.display='block';
+  const r=el.getBoundingClientRect();
+  const pw=fp.offsetWidth, ph=fp.offsetHeight;
+  let left=window.scrollX + r.right + 12;
+  let top=window.scrollY + r.top;
+  // 右邊放不下 → 放左邊
+  if(left + pw > window.scrollX + window.innerWidth - 8){
+    left = window.scrollX + r.left - pw - 12;
+  }
+  // 還是放不下（元素太靠左）→ 放下方
+  if(left < window.scrollX + 8){
+    left = window.scrollX + r.left;
+    top = window.scrollY + r.bottom + 10;
+  }
+  // 垂直超出 → 往上收
+  if(top + ph > window.scrollY + window.innerHeight - 8){
+    top = window.scrollY + window.innerHeight - ph - 8;
+  }
+  if(top < window.scrollY + 8) top = window.scrollY + 8;
+  fp.style.left=left+'px';
+  fp.style.top=top+'px';
+}
+
+// 從 inline style 讀某屬性
+function getStyle(el,prop){ return el.style.getPropertyValue(prop); }
+function pxNum(v){ const m=(v||'').match(/(-?\d+(?:\.\d+)?)px/); return m?parseFloat(m[1]):null; }
+function firstHex(v){ const m=(v||'').match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})/); return m?norm(m[0]):null; }
+function norm(h){ return h.length===4?'#'+h[1]+h[1]+h[2]+h[2]+h[3]+h[3]:h.toLowerCase(); }
+
+function buildControls(el){
+  const tagName=el.tagName.toLowerCase();
+  const txt=(el.textContent||'').trim().slice(0,16);
+  document.getElementById('tag').textContent='已選取：<'+tagName+'>'+(txt?'　「'+txt+(el.textContent.trim().length>16?'…':'')+'」':'');
+
+  const items=[];
+  // 圖片：可改網址
+  if(tagName==='img'){
+    const cur=el.getAttribute('src')||'';
+    items.push(`<div class="ctrl"><label style="display:block;margin-bottom:4px;">圖片網址</label><input type="text" value="${cur.replace(/"/g,'&quot;')}" oninput="setSrc(this.value)" style="width:100%;background:#15171c;color:#cfe;border:1px solid #3a3f4a;border-radius:5px;padding:6px;font-size:11px;font-family:monospace;"></div>`);
+  }
+  // 文字顏色
+  if(el.style.color) items.push(colorCtrl('文字顏色','color',firstHex(el.style.color)));
+  // 背景色
+  if(el.style.backgroundColor) items.push(colorCtrl('背景色','background-color',firstHex(el.style.backgroundColor)));
+  // 邊框顏色（border-left 等）取整條
+  ['border-left','border','border-top','border-right','border-bottom'].forEach(bp=>{
+    const v=el.style.getPropertyValue(bp);
+    if(v && firstHex(v)) items.push(borderColorCtrl('邊框顏色('+bp+')',bp,firstHex(v)));
+  });
+  // 字級
+  if(el.style.fontSize!==''){ const n=pxNum(el.style.fontSize); if(n!=null) items.push(numCtrl('字級','font-size',n,8,48)); }
+  // padding（整體）
+  if(el.style.padding!==''){ const n=pxNum(el.style.padding); if(n!=null) items.push(numCtrl('內距 padding','padding',n,0,40)); }
+  // margin-bottom（卡片間距常用）
+  if(el.style.marginBottom!==''){ const n=pxNum(el.style.marginBottom); if(n!=null) items.push(numCtrl('下方間距','margin-bottom',n,0,40)); }
+  // border-radius
+  if(el.style.borderRadius!==''){ const n=pxNum(el.style.borderRadius); if(n!=null) items.push(numCtrl('圓角','border-radius',n,0,40)); }
+  // 邊框粗細（border-left:5px...）
+  ['border-left','border'].forEach(bp=>{
+    const v=el.style.getPropertyValue(bp); const n=pxNum(v);
+    if(n!=null) items.push(borderWidthCtrl('邊框粗細('+bp+')',bp,n,0,12));
+  });
+
+  const wrap=document.getElementById('controls');
+  if(!items.length){ wrap.innerHTML='<div class="empty">這個元素的 style 沒有可調項目，試試點它<b>裡面</b>或<b>外層</b>的元素</div>'; return; }
+  wrap.innerHTML=items.join('');
+}
+
+function colorCtrl(label,prop,val){
+  if(!val) val='#000000';
+  return `<div class="ctrl"><div class="row"><label>${label}</label><input type="color" value="${val}" oninput="setColor('${prop}',this.value,this)"><span class="val">${val}</span></div></div>`;
+}
+function borderColorCtrl(label,prop,val){
+  if(!val) val='#000000';
+  return `<div class="ctrl"><div class="row"><label>${label}</label><input type="color" value="${val}" oninput="setBorderColor('${prop}',this.value,this)"><span class="val">${val}</span></div></div>`;
+}
+function numCtrl(label,prop,val,min,max){
+  max=Math.max(max,Math.ceil(val*1.5));
+  return `<div class="ctrl"><div class="row"><label>${label}</label><input type="range" min="${min}" max="${max}" value="${val}" oninput="setNum('${prop}',this.value,this)" onchange="snapshot()"><span class="val">${val}px</span></div></div>`;
+}
+function borderWidthCtrl(label,prop,val,min,max){
+  return `<div class="ctrl"><div class="row"><label>${label}</label><input type="range" min="${min}" max="${max}" value="${val}" oninput="setBorderWidth('${prop}',this.value,this)" onchange="snapshot()"><span class="val">${val}px</span></div></div>`;
+}
+
+function setSrc(v){ if(!picked)return; picked.setAttribute('src',v); snapshot(); }
+function setColor(prop,v,inp){ if(!picked)return; picked.style.setProperty(prop,v); inp.nextElementSibling.textContent=v; snapshot(); }
+function setBorderColor(prop,v,inp){
+  if(!picked)return;
+  let cur=picked.style.getPropertyValue(prop);
+  cur=cur.replace(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})/,v);
+  picked.style.setProperty(prop,cur); inp.nextElementSibling.textContent=v; snapshot();
+}
+function setNum(prop,v,inp){ if(!picked)return; picked.style.setProperty(prop,v+'px'); inp.nextElementSibling.textContent=v+'px'; }
+function setBorderWidth(prop,v,inp){
+  if(!picked)return;
+  let cur=picked.style.getPropertyValue(prop);
+  cur=cur.replace(/(-?\d+(?:\.\d+)?)px/,v+'px');
+  picked.style.setProperty(prop,cur); inp.nextElementSibling.textContent=v+'px';
+}
+
+function genOut(){
+  // 複製預覽內容，去掉我們加的高亮 class
+  const clone=preview.cloneNode(true);
+  clone.querySelectorAll('.picked,.hovering').forEach(el=>{ el.classList.remove('picked'); el.classList.remove('hovering'); if(!el.getAttribute('class')) el.removeAttribute('class'); });
+  let out=clone.innerHTML.replace(/\n{2,}/g,'\n').trim();
+  const ta=document.getElementById('output'); ta.value=out; ta.select();
+  try{ document.execCommand('copy'); const c=document.getElementById('copied'); c.style.opacity=1; setTimeout(()=>c.style.opacity=0,1500);}catch(e){}
+}
+</script>
+
+</body>
+</html>

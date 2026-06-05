@@ -200,7 +200,7 @@ function buildControls(el){
   // 圖片：可改網址
   if(tagName==='img'){
     const cur=el.getAttribute('src')||'';
-    items.push(`<div class="ctrl"><label style="display:block;margin-bottom:4px;">圖片網址</label><input type="text" value="${cur.replace(/"/g,'&quot;')}" oninput="setSrc(this.value)" style="width:100%;background:#15171c;color:#cfe;border:1px solid #3a3f4a;border-radius:5px;padding:6px;font-size:11px;font-family:monospace;"></div>`);
+    items.push(`<div class="ctrl"><label style="display:block;margin-bottom:4px;">圖片網址</label><input type="text" value="${cur.replace(/"/g,'&quot;')}" oninput="setSrc(this.value)" onblur="snapshot()" style="width:100%;background:#15171c;color:#cfe;border:1px solid #3a3f4a;border-radius:5px;padding:6px;font-size:11px;font-family:monospace;"></div>`);
   }
   // 文字顏色
   if(el.style.color) items.push(colorCtrl('文字顏色','color',firstHex(el.style.color)));
@@ -232,11 +232,11 @@ function buildControls(el){
 
 function colorCtrl(label,prop,val){
   if(!val) val='#000000';
-  return `<div class="ctrl"><div class="row"><label>${label}</label><input type="color" value="${val}" oninput="setColor('${prop}',this.value,this)"><span class="val">${val}</span></div></div>`;
+  return `<div class="ctrl"><div class="row"><label>${label}</label><input type="color" value="${val}" oninput="setColor('${prop}',this.value,this)" onchange="snapshot()"><span class="val">${val}</span></div></div>`;
 }
 function borderColorCtrl(label,prop,val){
   if(!val) val='#000000';
-  return `<div class="ctrl"><div class="row"><label>${label}</label><input type="color" value="${val}" oninput="setBorderColor('${prop}',this.value,this)"><span class="val">${val}</span></div></div>`;
+  return `<div class="ctrl"><div class="row"><label>${label}</label><input type="color" value="${val}" oninput="setBorderColor('${prop}',this.value,this)" onchange="snapshot()"><span class="val">${val}</span></div></div>`;
 }
 function numCtrl(label,prop,val,min,max){
   max=Math.max(max,Math.ceil(val*1.5));
@@ -246,13 +246,13 @@ function borderWidthCtrl(label,prop,val,min,max){
   return `<div class="ctrl"><div class="row"><label>${label}</label><input type="range" min="${min}" max="${max}" value="${val}" oninput="setBorderWidth('${prop}',this.value,this)" onchange="snapshot()"><span class="val">${val}px</span></div></div>`;
 }
 
-function setSrc(v){ if(!picked)return; picked.setAttribute('src',v); snapshot(); }
-function setColor(prop,v,inp){ if(!picked)return; picked.style.setProperty(prop,v); inp.nextElementSibling.textContent=v; snapshot(); }
+function setSrc(v){ if(!picked)return; picked.setAttribute('src',v); }
+function setColor(prop,v,inp){ if(!picked)return; picked.style.setProperty(prop,v); inp.nextElementSibling.textContent=v; }
 function setBorderColor(prop,v,inp){
   if(!picked)return;
   let cur=picked.style.getPropertyValue(prop);
   cur=cur.replace(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})/,v);
-  picked.style.setProperty(prop,cur); inp.nextElementSibling.textContent=v; snapshot();
+  picked.style.setProperty(prop,cur); inp.nextElementSibling.textContent=v;
 }
 function setNum(prop,v,inp){ if(!picked)return; picked.style.setProperty(prop,v+'px'); inp.nextElementSibling.textContent=v+'px'; }
 function setBorderWidth(prop,v,inp){

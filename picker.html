@@ -49,6 +49,12 @@
   .rz-ml { cursor:ew-resize; } .rz-mr { cursor:ew-resize; }
   #rzHint { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8);
     color:#ffd34d; font-size:12px; padding:6px 14px; border-radius:6px; z-index:99999; display:none; }
+  /* 反白改色工具列 */
+  #selBar { position:absolute; z-index:99999; background:#2a2e36; border:1px solid #4a5160; border-radius:8px;
+    padding:6px 8px; box-shadow:0 6px 18px rgba(0,0,0,0.6); display:none; align-items:center; gap:8px; }
+  #selBar span { font-size:12px; color:#cde; }
+  #selBar input[type=color] { width:30px; height:24px; border:none; border-radius:4px; cursor:pointer; padding:0; }
+  #editHint { font-size:11px; color:#8fd; margin-top:6px; }
 </style>
 </head>
 <body>
@@ -92,6 +98,7 @@
 </div>
 
 <div id="rzHint">拖四角縮放　·　勾「🔒 等比」鎖比例</div>
+<div id="selBar"><span>選取的字：</span><input type="color" id="selColor" value="#ff0000"><button onclick="applySelColor()" style="padding:4px 10px;font-size:12px;">上色</button></div>
 <div id="rzLayer"></div>
 
 <script>
@@ -172,7 +179,7 @@ function pickParent(){
   if(p && p!==preview && preview.contains(p)){ pick(p); }
 }
 function pick(el){
-  if(picked){ picked.classList.remove('picked'); picked.style.cursor=''; picked.removeEventListener('pointerdown',moveStart); }
+  if(picked){ picked.classList.remove('picked'); picked.style.cursor=''; picked.removeEventListener('pointerdown',moveStart); picked.removeAttribute('contenteditable'); }
   picked=el; el.classList.add('picked'); el.classList.remove('hovering');
   buildControls(el);
   // 把浮動面板定位到元素右側（空間不夠就放左側/下方）
@@ -199,8 +206,16 @@ function pick(el){
   fp.style.left=left+'px';
   fp.style.top=top+'px';
   drawResizeHandles(el);
-  el.style.cursor='move';
-  enableMove(el);
+  // 含文字 → 可就地打字編輯；圖片/容器 → 可拖移
+  if(el.tagName.toLowerCase()==='img'){
+    el.style.cursor='move';
+    enableMove(el);
+  } else if(el.textContent.trim()!==''){
+    makeEditable(el);
+  } else {
+    el.style.cursor='move';
+    enableMove(el);
+  }
 }
 
 // ===== 四角縮放 =====
@@ -337,6 +352,14 @@ function buildControls(el){
   document.getElementById('tag').textContent='已選取：<'+tagName+'>'+(txt?'　「'+txt+(el.textContent.trim().length>16?'…':'')+'」':'');
 
   const items=[];
+  // 文字內容編輯
+  const hasText = el.textContent.trim()!=='';
+  const pureText = el.children.length===0;
+  if(hasText){
+    const cur=el.textContent;
+    const warn = pureText ? '' : '<div style="font-size:11px;color:#f0a;margin-bottom:4px;">⚠ 這段內含變色字，整段改寫會讓變色變回一般色（改完可再單獨點該詞設色）</div>';
+    items.push(`<div class="ctrl"><label style="display:block;margin-bottom:4px;">✏️ 文字內容</label>${warn}<textarea oninput="setText(this.value)" onblur="snapshot()" style="width:100%;height:60px;background:#15171c;color:#fff;border:1px solid #3a3f4a;border-radius:5px;padding:6px;font-size:12px;font-family:inherit;resize:vertical;">${cur.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>`);
+  }
   // 圖片：可改網址 + 寬度
   if(tagName==='img'){
     const cur=el.getAttribute('src')||'';
@@ -396,6 +419,50 @@ function borderWidthCtrl(label,prop,val,min,max){
   return `<div class="ctrl"><div class="row"><label>${label}</label><input type="range" min="${min}" max="${max}" value="${val}" oninput="setBorderWidth('${prop}',this.value,this)" onchange="snapshot()"><span class="val">${val}px</span></div></div>`;
 }
 
+function setText(v){ if(!picked)return; picked.textContent=v; refreshHandles(picked); }
+
+// ===== 反白選字改色 =====
+function makeEditable(el){
+  // 只對含文字的元素開放就地打字
+  if(el.textContent.trim()!==''){
+    el.setAttribute('contenteditable','true');
+    el.style.outline='none';
+  }
+}
+// 監聽反白：有選取文字就在選取處上方顯示上色工具列
+document.addEventListener('selectionchange',()=>{
+  const sel=window.getSelection();
+  const bar=document.getElementById('selBar');
+  if(!sel || sel.isCollapsed || sel.toString().trim()===''){ bar.style.display='none'; return; }
+  // 確認選取範圍在預覽區內
+  const anchor=sel.anchorNode;
+  if(!anchor || !preview.contains(anchor.nodeType===3?anchor.parentNode:anchor)){ bar.style.display='none'; return; }
+  const range=sel.getRangeAt(0);
+  const r=range.getBoundingClientRect();
+  bar.style.display='flex';
+  bar.style.left=(window.scrollX + r.left)+'px';
+  bar.style.top=(window.scrollY + r.top - 40)+'px';
+});
+function applySelColor(){
+  const sel=window.getSelection();
+  if(!sel || sel.isCollapsed) return;
+  const color=document.getElementById('selColor').value;
+  // 用 span 包住選取的文字
+  const range=sel.getRangeAt(0);
+  const span=document.createElement('span');
+  span.style.color=color;
+  try{
+    range.surroundContents(span);
+  }catch(e){
+    // 跨標籤選取時 surroundContents 會失敗，改用 extract+insert
+    const frag=range.extractContents();
+    span.appendChild(frag);
+    range.insertNode(span);
+  }
+  sel.removeAllRanges();
+  document.getElementById('selBar').style.display='none';
+  snapshot();
+}
 function setSrc(v){ if(!picked)return; picked.setAttribute('src',v); }
 function setImgW(v,unit,inp){ if(!picked)return; picked.style.width=v+unit; inp.nextElementSibling.textContent=v+unit; }
 function setColor(prop,v,inp){ if(!picked)return; picked.style.setProperty(prop,v); inp.nextElementSibling.textContent=v; }
@@ -414,9 +481,28 @@ function setBorderWidth(prop,v,inp){
 }
 
 function genOut(){
-  // 複製預覽內容，去掉我們加的高亮 class
   const clone=preview.cloneNode(true);
-  clone.querySelectorAll('.picked,.hovering').forEach(el=>{ el.classList.remove('picked'); el.classList.remove('hovering'); if(!el.getAttribute('class')) el.removeAttribute('class'); });
+  // 1. 清掉高亮 class
+  clone.querySelectorAll('.picked,.hovering').forEach(el=>{ el.classList.remove('picked','hovering'); if(!el.getAttribute('class')) el.removeAttribute('class'); });
+  // 2. 移除所有 contenteditable 屬性
+  clone.querySelectorAll('[contenteditable]').forEach(el=>el.removeAttribute('contenteditable'));
+  // 3. 移除瀏覽器可能塞的 class（Caveduck 不能有 class）
+  clone.querySelectorAll('[class]').forEach(el=>el.removeAttribute('class'));
+  // 4. 把 <font> 轉成 span（瀏覽器有時用 font）
+  clone.querySelectorAll('font').forEach(f=>{
+    const s=document.createElement('span');
+    if(f.getAttribute('color')) s.style.color=f.getAttribute('color');
+    s.innerHTML=f.innerHTML; f.replaceWith(s);
+  });
+  // 5. 移除空的 span（沒文字又沒樣式）
+  clone.querySelectorAll('span').forEach(s=>{
+    if(s.textContent.trim()==='' && !s.getAttribute('style')) s.replaceWith(...s.childNodes);
+  });
+  // 6. 移除 outline:none 這種編輯殘留樣式
+  clone.querySelectorAll('[style]').forEach(el=>{
+    let st=el.getAttribute('style').replace(/outline\s*:\s*none\s*;?/gi,'').trim();
+    if(st) el.setAttribute('style',st); else el.removeAttribute('style');
+  });
   let out=clone.innerHTML.replace(/\n{2,}/g,'\n').trim();
   const ta=document.getElementById('output'); ta.value=out; ta.select();
   try{ document.execCommand('copy'); const c=document.getElementById('copied'); c.style.opacity=1; setTimeout(()=>c.style.opacity=0,1500);}catch(e){}

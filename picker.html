@@ -85,11 +85,11 @@
 <div id="floatPanel">
   <span class="close" onclick="closePanel()">✕</span>
   <div id="tag">尚未選取元素</div>
-  <div style="margin-bottom:8px;"><button onclick="pickParent()" style="background:#5a6170;padding:5px 10px;font-size:12px;">⬆ 選外層</button></div>
+  <div style="margin-bottom:8px;"><button onclick="pickParent()" style="background:#5a6170;padding:5px 10px;font-size:12px;">⬆ 選外層</button> <label style="font-size:12px;cursor:pointer;user-select:none;margin-left:6px;"><input type="checkbox" id="lockRatio" style="vertical-align:middle;"> 🔒 等比縮放</label></div>
   <div id="controls"></div>
 </div>
 
-<div id="rzHint">拖四角縮放　·　按住 Shift 等比</div>
+<div id="rzHint">拖四角縮放　·　勾「🔒 等比」鎖比例</div>
 <div id="rzLayer"></div>
 
 <script>
@@ -170,7 +170,7 @@ function pickParent(){
   if(p && p!==preview && preview.contains(p)){ pick(p); }
 }
 function pick(el){
-  if(picked) picked.classList.remove('picked');
+  if(picked){ picked.classList.remove('picked'); picked.style.cursor=''; picked.removeEventListener('pointerdown',moveStart); }
   picked=el; el.classList.add('picked'); el.classList.remove('hovering');
   buildControls(el);
   // 把浮動面板定位到元素右側（空間不夠就放左側/下方）
@@ -197,6 +197,8 @@ function pick(el){
   fp.style.left=left+'px';
   fp.style.top=top+'px';
   drawResizeHandles(el);
+  el.style.cursor='move';
+  enableMove(el);
 }
 
 // ===== 四角縮放 =====
@@ -241,9 +243,11 @@ function doResize(e){
   if(rzData.corner==='bl'){ dx=-dx; }
   let nw=Math.max(20, rzData.w+dx);
   let nh=Math.max(20, rzData.h+dy);
-  if(e.shiftKey){ nh=nw/rzData.ratio; } // Shift 等比
+  const lockEl=document.getElementById('lockRatio');
+  const keepRatio = (lockEl && lockEl.checked) || e.shiftKey; // 勾選框 或 Shift
+  if(keepRatio){ nh=nw/rzData.ratio; }
   rzData.el.style.width=Math.round(nw)+'px';
-  if(e.shiftKey) rzData.el.style.height=Math.round(nh)+'px';
+  if(keepRatio) rzData.el.style.height=Math.round(nh)+'px';
   refreshHandles(rzData.el);
 }
 function endResize(){
@@ -252,6 +256,44 @@ function endResize(){
   window.removeEventListener('pointermove',doResize);
   window.removeEventListener('pointerup',endResize);
   rzData=null;
+  snapshot();
+}
+
+// ===== 元素拖移（移動位置）=====
+let mvData=null;
+function enableMove(el){
+  el.removeEventListener('pointerdown',moveStart);
+  el.addEventListener('pointerdown',moveStart);
+}
+function moveStart(e){
+  // 只在選中的元素、且不是點在縮放控制點上時觸發
+  if(!picked || e.target!==picked) return;
+  // 讀目前位移
+  const cs=getComputedStyle(picked);
+  let curL=parseFloat(picked.style.left)||0;
+  let curT=parseFloat(picked.style.top)||0;
+  // 確保 position 不是 static（否則 left/top 無效）
+  if(cs.position==='static'){ picked.style.position='relative'; }
+  mvData={ startX:e.clientX, startY:e.clientY, l:curL, t:curT };
+  document.getElementById('rzHint').textContent='拖曳移動位置';
+  document.getElementById('rzHint').style.display='block';
+  window.addEventListener('pointermove',moveDo);
+  window.addEventListener('pointerup',moveEnd);
+  e.preventDefault();
+}
+function moveDo(e){
+  if(!mvData||!picked) return;
+  picked.style.left=(mvData.l + e.clientX - mvData.startX)+'px';
+  picked.style.top=(mvData.t + e.clientY - mvData.startY)+'px';
+  refreshHandles(picked);
+}
+function moveEnd(){
+  if(!mvData) return;
+  document.getElementById('rzHint').style.display='none';
+  document.getElementById('rzHint').textContent='拖四角縮放　·　按住 Shift 等比';
+  window.removeEventListener('pointermove',moveDo);
+  window.removeEventListener('pointerup',moveEnd);
+  mvData=null;
   snapshot();
 }
 

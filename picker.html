@@ -40,6 +40,13 @@
   #floatPanel #tag::before { content:'⠿ '; color:#667; }
   #floatPanel .close { position:absolute; top:6px; right:10px; cursor:pointer; color:#9aa; font-size:16px; }
   #floatPanel .close:hover { color:#fff; }
+  /* 四角縮放控制點 */
+  .rz-handle { position:absolute; width:16px; height:16px; background:#ffcc00; border:2px solid #333;
+    border-radius:50%; z-index:9998; box-shadow:0 0 4px rgba(0,0,0,0.6); }
+  .rz-tl { cursor:nwse-resize; } .rz-tr { cursor:nesw-resize; }
+  .rz-bl { cursor:nesw-resize; } .rz-br { cursor:nwse-resize; }
+  #rzHint { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8);
+    color:#ffd34d; font-size:12px; padding:6px 14px; border-radius:6px; z-index:99999; display:none; }
 </style>
 </head>
 <body>
@@ -82,6 +89,9 @@
   <div id="controls"></div>
 </div>
 
+<div id="rzHint">拖四角縮放　·　按住 Shift 等比</div>
+<div id="rzLayer"></div>
+
 <script>
 const inputEl=document.getElementById('input');
 const preview=document.getElementById('preview');
@@ -101,6 +111,7 @@ function undo(){
   const prev=history[history.length-1];
   preview.innerHTML=prev;
   picked=null;
+  clearResizeHandles();
   document.getElementById('floatPanel').style.display='none';
   bindEvents();
 }
@@ -133,12 +144,14 @@ function renderPreview(){
   preview.innerHTML=html;
   picked=null;
   history=[];
+  clearResizeHandles();
   document.getElementById('floatPanel').style.display='none';
   bindEvents();
   snapshot();
 }
 function closePanel(){
   document.getElementById('floatPanel').style.display='none';
+  clearResizeHandles();
   if(picked){ picked.classList.remove('picked'); picked=null; }
 }
 
@@ -183,6 +196,63 @@ function pick(el){
   if(top < window.scrollY + 8) top = window.scrollY + 8;
   fp.style.left=left+'px';
   fp.style.top=top+'px';
+  drawResizeHandles(el);
+}
+
+// ===== 四角縮放 =====
+let rzHandles=[];
+function clearResizeHandles(){
+  rzHandles.forEach(h=>h.remove()); rzHandles=[];
+}
+function drawResizeHandles(el){
+  clearResizeHandles();
+  const corners=[['tl',0,0],['tr',1,0],['bl',0,1],['br',1,1]];
+  corners.forEach(([name,fx,fy])=>{
+    const h=document.createElement('div');
+    h.className='rz-handle rz-'+name;
+    document.body.appendChild(h);
+    rzHandles.push(h);
+    positionHandle(h,el,fx,fy);
+    h.addEventListener('pointerdown',e=>startResize(e,el,name));
+  });
+}
+function positionHandle(h,el,fx,fy){
+  const r=el.getBoundingClientRect();
+  h.style.left=(window.scrollX + r.left + fx*r.width - 8)+'px';
+  h.style.top=(window.scrollY + r.top + fy*r.height - 8)+'px';
+}
+function refreshHandles(el){ const c=[['tl',0,0],['tr',1,0],['bl',0,1],['br',1,1]]; rzHandles.forEach((h,i)=>positionHandle(h,el,c[i][1],c[i][2])); }
+
+let rzData=null;
+function startResize(e,el,corner){
+  e.preventDefault(); e.stopPropagation();
+  const r=el.getBoundingClientRect();
+  rzData={ el, corner, startX:e.clientX, startY:e.clientY, w:r.width, h:r.height, ratio:r.width/r.height };
+  document.getElementById('rzHint').style.display='block';
+  window.addEventListener('pointermove',doResize);
+  window.addEventListener('pointerup',endResize);
+}
+function doResize(e){
+  if(!rzData) return;
+  let dx=e.clientX-rzData.startX, dy=e.clientY-rzData.startY;
+  // 依角落決定方向
+  if(rzData.corner==='tl'){ dx=-dx; dy=-dy; }
+  if(rzData.corner==='tr'){ dy=-dy; }
+  if(rzData.corner==='bl'){ dx=-dx; }
+  let nw=Math.max(20, rzData.w+dx);
+  let nh=Math.max(20, rzData.h+dy);
+  if(e.shiftKey){ nh=nw/rzData.ratio; } // Shift 等比
+  rzData.el.style.width=Math.round(nw)+'px';
+  if(e.shiftKey) rzData.el.style.height=Math.round(nh)+'px';
+  refreshHandles(rzData.el);
+}
+function endResize(){
+  if(!rzData) return;
+  document.getElementById('rzHint').style.display='none';
+  window.removeEventListener('pointermove',doResize);
+  window.removeEventListener('pointerup',endResize);
+  rzData=null;
+  snapshot();
 }
 
 // 從 inline style 讀某屬性
@@ -281,6 +351,8 @@ function genOut(){
   const ta=document.getElementById('output'); ta.value=out; ta.select();
   try{ document.execCommand('copy'); const c=document.getElementById('copied'); c.style.opacity=1; setTimeout(()=>c.style.opacity=0,1500);}catch(e){}
 }
+window.addEventListener('scroll',()=>{ if(picked && rzHandles.length) refreshHandles(picked); }, true);
+window.addEventListener('resize',()=>{ if(picked && rzHandles.length) refreshHandles(picked); });
 </script>
 
 </body>
